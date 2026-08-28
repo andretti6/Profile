@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚀 Transcendence Dashboard</title>
+    <!-- Fonts & Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,600;14..32,700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+    <!-- Firebase SDKs (Compat for simplicity) -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+    <style>
+        /* --- RESET & BASE --- */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0a0a12;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Inter', sans-serif;
+            padding: 30px;
+            overflow-x: hidden;
+            color: #fff;
+        }
+
+        /* --- ANIMATED BACKGROUND BLOBS (3D Depth) --- */
+        .bg-blob {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(120px);
+            opacity: 0.4;
+            pointer-events: none;
+            z-index: 0;
+            animation: floatBlob 15s infinite alternate ease-in-out;
+        }
+        .blob1 { width: 600px; height: 600px; top: -200px; left: -200px; background: #9d4edd; }
+        .blob2 { width: 500px; height: 500px; bottom: -150px; right: -150px; background: #ff5722; animation-duration: 20s; animation-delay: -5s; }
+        .blob3 { width: 400px; height: 400px; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #00d4ff; animation-duration: 18s; animation-delay: -10s; opacity: 0.15; }
+
+        @keyframes floatBlob {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(100px, 80px) scale(1.3); }
+        }
+
+        /* --- 3D STAGE --- */
+        .stage {
+            width: 100%;
+            max-width: 1440px;
+            perspective: 1200px;
+            perspective-origin: 50% 50%;
+            z-index: 10;
+            position: relative;
+        }
+
+        .dashboard {
+            background: rgba(20, 20, 30, 0.35);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border-radius: 48px;
+            padding: 40px 35px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 40px 80px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(157, 78, 221, 0.15) inset;
+            transform: rotateX(2deg) rotateY(-1deg);
+            transition: transform 0.2s ease-out;
+            transform-style: preserve-3d;
+        }
+
+        /* --- HEADER --- */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 20px;
+        }
+        .header h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: 1.8rem;
+            background: linear-gradient(135deg, #d4bfff, #9d4edd, #ff8c61);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 2px;
+            text-shadow: 0 0 40px rgba(157, 78, 221, 0.3);
+        }
+        .status { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; color: #a0a0b8; }
+        .status .dot {
+            width: 10px; height: 10px; border-radius: 50%;
+            background: #4ade80; box-shadow: 0 0 15px #4ade80;
+            animation: pulseDot 2s infinite;
+        }
+        @keyframes pulseDot { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+        /* --- MAIN VERTICAL FLOW --- */
+        .flow {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* --- CARD BASE (3D Glass) --- */
+        .card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border-radius: 24px;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.6);
+            transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            cursor: text;
+            transform: translateZ(0px) rotateX(0deg);
+            color: #eaeef2;
+        }
+        .card:hover {
+            transform: translateY(-5px) translateZ(30px) rotateX(2deg);
+            border-color: rgba(157, 78, 221, 0.3);
+            box-shadow: 0 30px 60px -10px rgba(157, 78, 221, 0.2), 0 0 0 1px rgba(157, 78, 221, 0.1) inset;
+        }
+        .card:focus-within {
+            border-color: #9d4edd;
+            box-shadow: 0 0 30px rgba(157, 78, 221, 0.15), 0 0 0 2px #9d4edd inset;
+        }
+
+        .card-label {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.65rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: #7a7a9a;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .card-label i { font-size: 0.9rem; }
+
+        .card-content {
+            font-size: 0.95rem;
+            line-height: 1.6;
+            font-weight: 400;
+            outline: none;
+            min-height: 40px;
+            word-break: break-word;
+            color: #d0d5e0;
+        }
+        .card-content strong { color: #fff; font-weight: 600; }
+
+        /* --- NORTH STAR --- */
+        .north-star {
+            background: linear-gradient(135deg, rgba(157, 78, 221, 0.15), rgba(255, 87, 34, 0.05));
+            border-color: rgba(157, 78, 221, 0.25);
+            padding: 25px 30px;
+            text-align: center;
+        }
+        .north-star .card-label { justify-content: center; color: #b388ff; font-size: 0.8rem; }
+        .north-star .card-content {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #ffffff;
+            text-shadow: 0 0 40px rgba(157, 78, 221, 0.3);
+        }
+
+        /* ============================================= */
+        /* --- DAILY CHECKLIST · STANDOUT --- */
+        /* ============================================= */
+        .checklist-hero {
+            position: relative;
+            border-radius: 28px;
+            padding: 2px;
+            background: linear-gradient(135deg, #ffd700, #ff5722, #9d4edd, #00d4ff, #ffd700);
+            background-size: 300% 300%;
+            animation: heroGlow 8s ease infinite;
+            box-shadow: 0 25px 60px -10px rgba(157, 78, 221, 0.35);
+        }
+        @keyframes heroGlow {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        .checklist-hero-inner {
+            background: rgba(14, 12, 22, 0.92);
+            border-radius: 26px;
+            padding: 28px 30px;
+        }
+        .checklist-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .checklist-title {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: 1.1rem;
+            letter-spacing: 1.5px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .checklist-title i { color: #ffd700; text-shadow: 0 0 20px rgba(255, 215, 0, 0.6); }
+        .checklist-tag {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.6rem;
+            letter-spacing: 2px;
+            background: rgba(255, 87, 34, 0.15);
+            color: #ff8c61;
+            border: 1px solid rgba(255, 87, 34, 0.3);
+            padding: 4px 12px;
+            border-radius: 20px;
+        }
+        .checklist-progress-wrap {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 180px;
+        }
+        .checklist-progress-bar {
+            flex: 1;
+            height: 8px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.08);
+            overflow: hidden;
+        }
+        .checklist-progress-fill {
+            height: 100%;
+            border-radius: 10px;
+            background: linear-gradient(90deg, #ffd700, #4ade80);
+            transition: width 0.4s ease;
+            box-shadow: 0 0 12px rgba(74, 222, 128, 0.6);
+        }
+        .checklist-progress-num {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #4ade80;
+            white-space: nowrap;
+        }
+        .checklist-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .checklist-row {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-left: 3px solid var(--pcolor, #9d4edd);
+            border-radius: 14px;
+            padding: 12px 16px;
+            transition: all 0.25s ease;
+        }
+        .checklist-row:hover {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(255, 255, 255, 0.12);
+            border-left-color: var(--pcolor, #9d4edd);
+        }
+        .checklist-row.done {
+            background: rgba(74, 222, 128, 0.06);
+            border-left-color: #4ade80;
+        }
+        .chk-box {
+            flex-shrink: 0;
+            width: 26px;
+            height: 26px;
+            border-radius: 8px;
+            border: 2px solid rgba(255, 255, 255, 0.25);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: rgba(0,0,0,0.2);
+        }
+        .chk-box:hover { border-color: #4ade80; }
+        .chk-box.checked {
+            background: #4ade80;
+            border-color: #4ade80;
+            box-shadow: 0 0 14px rgba(74, 222, 128, 0.6);
+        }
+        .chk-box i { font-size: 0.75rem; color: #0a0a12; opacity: 0; transform: scale(0.5); transition: all 0.2s ease; }
+        .chk-box.checked i { opacity: 1; transform: scale(1); }
+        .chk-text {
+            flex: 1;
+            font-size: 0.92rem;
+            line-height: 1.45;
+            outline: none;
+            color: #eaeef2;
+        }
+        .checklist-row.done .chk-text {
+            color: #7a8a7a;
+            text-decoration: line-through;
+            text-decoration-color: rgba(74, 222, 128, 0.5);
+        }
+
+        /* ============================================= */
+        /* --- COLLAPSIBLE SECTION GROUPS --- */
+        /* ============================================= */
+        .section {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 26px;
+            overflow: hidden;
+            transition: border-color 0.3s ease;
+        }
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 18px 24px;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.2s ease;
+        }
+        .section-header:hover { background: rgba(255, 255, 255, 0.03); }
+        .section-header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .section-header-left i.section-icon {
+            font-size: 1rem;
+            color: #9d4edd;
+        }
+        .section-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.85rem;
+            letter-spacing: 1.5px;
+            font-weight: 700;
+            color: #eaeef2;
+        }
+        .section-sub {
+            font-size: 0.75rem;
+            color: #7a7a9a;
+            margin-top: 2px;
+        }
+        .section-chevron {
+            width: 32px;
+            height: 32px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.3s ease, background 0.2s ease;
+            flex-shrink: 0;
+        }
+        .section.open .section-chevron { transform: rotate(180deg); background: rgba(157, 78, 221, 0.2); }
+        .section-body {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94), padding 0.3s ease;
+            padding: 0 24px;
+        }
+        .section.open .section-body {
+            max-height: 4000px;
+            padding: 0 24px 24px 24px;
+        }
+
+        /* --- KANBAN (inside section) --- */
+        .kanban-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 16px;
+        }
+        .kanban-row .card { cursor: text; }
+        .kanban-row .card-content { font-size: 0.82rem; min-height: 60px; white-space: pre-wrap; }
+
+        /* --- SPRINT WEEKS (inside section) --- */
+        .sprint-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr;
+            gap: 15px;
+        }
+        .sprint-item {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 16px;
+            padding: 15px 18px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.3s ease;
+            cursor: text;
+        }
+        .sprint-item:hover { background: rgba(255, 255, 255, 0.06); border-color: rgba(157, 78, 221, 0.2); }
+        .sprint-item .sprint-week { font-family: 'Orbitron', sans-serif; font-size: 0.68rem; color: #ff8c61; letter-spacing: 1px; }
+        .sprint-item .sprint-theme { font-weight: 700; font-size: 0.95rem; margin: 4px 0; outline: none; }
+        .sprint-item .sprint-focus { font-size: 0.78rem; color: #aab; line-height: 1.4; outline: none; }
+
+        /* --- PILLARS (inside section) --- */
+        .pillar-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        .pillar {
+            border-left: 4px solid #9d4edd;
+        }
+        .pillar .card-content {
+            font-size: 0.82rem;
+            white-space: pre-wrap;
+            line-height: 1.65;
+        }
+        .pillar-metric {
+            color: #4ade80;
+            font-size: 0.68rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            letter-spacing: 0.5px;
+            background: rgba(74, 222, 128, 0.05);
+            padding: 4px 10px;
+            border-radius: 20px;
+            border: 1px solid rgba(74, 222, 128, 0.1);
+            display: inline-block;
+        }
+
+        /* --- Scroll / Responsive --- */
+        @media (max-width: 1100px) {
+            .pillar-row { grid-template-columns: 1fr; }
+            .sprint-row { grid-template-columns: 1fr 1fr; }
+            .kanban-row { grid-template-columns: 1fr; }
+            .north-star .card-content { font-size: 1rem; }
+        }
+        @media (max-width: 600px) {
+            body { padding: 10px; }
+            .dashboard { padding: 20px 15px; border-radius: 24px; }
+            .sprint-row { grid-template-columns: 1fr; }
+            .header h1 { font-size: 1.2rem; }
+            .checklist-hero-inner { padding: 20px 18px; }
+            .section-header { padding: 16px 16px; }
+            .section.open .section-body { padding: 0 16px 16px 16px; }
+        }
+
+        /* Utility */
+        .text-muted { color: #6a6a8a; font-size: 0.7rem; letter-spacing: 0.5px; }
+
+        /* Editable placeholder styling */
+        [contenteditable="true"]:empty:before {
+            content: "Click to edit...";
+            color: #4a4a6a;
+            font-style: italic;
+        }
+        [contenteditable="true"]:focus { outline: none; }
+
+        /* tiny scroll */
+        ::-webkit-scrollbar { width: 4px; background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #9d4edd; border-radius: 10px; }
+    </style>
+</head>
+<body>
+
+    <!-- Background Orbs -->
+    <div class="bg-blob blob1"></div>
+    <div class="bg-blob blob2"></div>
+    <div class="bg-blob blob3"></div>
+
+    <div class="stage" id="stage">
+        <div class="dashboard" id="dashboard">
+
+            <!-- HEADER -->
+            <div class="header">
+                <h1><i class="fas fa-bullseye" style="color:#9d4edd; -webkit-text-fill-color:initial;"></i> TRANSCENDENCE</h1>
+                <div class="status">
+                    <span class="dot"></span>
+                    <span id="syncStatus">Live Sync</span>
+                    <span class="text-muted" style="margin-left:8px;">| Click text to edit · click headers to expand</span>
+                </div>
+            </div>
+
+            <div class="flow">
+
+                <!-- 1. NORTH STAR -->
+                <div class="card north-star" data-path="northStar">
+                    <div class="card-label"><i class="fas fa-rocket"></i> NORTH STAR · ULTIMATE WHY</div>
+                    <div class="card-content" contenteditable="true">Build independent, transcendent ecosystems that transform Jobs, Spirits, &amp; Realities—equipping families with maturity, love, and financial wealth.</div>
+                </div>
+
+                <!-- 2. DAILY CHECKLIST · HERO -->
+                <div class="checklist-hero">
+                    <div class="checklist-hero-inner">
+                        <div class="checklist-head">
+                            <div class="checklist-title"><i class="fas fa-fire"></i> DAILY TRANSCENDENCE CHECKLIST <span class="checklist-tag">NON-NEGOTIABLE</span></div>
+                            <div class="checklist-progress-wrap">
+                                <div class="checklist-progress-bar"><div class="checklist-progress-fill" id="progressFill" style="width:0%"></div></div>
+                                <div class="checklist-progress-num" id="progressNum">0/7</div>
+                            </div>
+                        </div>
+                        <div class="checklist-list" id="checklistContainer"><!-- Injected by JS --></div>
+                    </div>
+                </div>
+
+                <!-- 3. KANBAN SECTION -->
+                <div class="section open" id="section-kanban" data-section="kanban">
+                    <div class="section-header">
+                        <div class="section-header-left">
+                            <i class="fas fa-layer-group section-icon" style="color:#00d4ff;"></i>
+                            <div>
+                                <div class="section-title">SPRINT BOARD</div>
+                                <div class="section-sub">Backlog · Doing · Done</div>
+                            </div>
+                        </div>
+                        <div class="section-chevron"><i class="fas fa-chevron-down"></i></div>
+                    </div>
+                    <div class="section-body">
+                        <div class="kanban-row">
+                            <div class="card" data-path="kanban.backlog">
+                                <div class="card-label"><i class="fas fa-inbox" style="color:#ff8c61;"></i> BACKLOG</div>
+                                <div class="card-content" contenteditable="true"></div>
+                            </div>
+                            <div class="card" data-path="kanban.doing">
+                                <div class="card-label"><i class="fas fa-spinner" style="color:#00d4ff;"></i> DOING (This Sprint)</div>
+                                <div class="card-content" contenteditable="true"></div>
+                            </div>
+                            <div class="card" data-path="kanban.done">
+                                <div class="card-label"><i class="fas fa-check-circle" style="color:#4ade80;"></i> DONE</div>
+                                <div class="card-content" contenteditable="true"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. WEEKLY SPRINTS SECTION -->
+                <div class="section" id="section-sprints" data-section="sprints">
+                    <div class="section-header">
+                        <div class="section-header-left">
+                            <i class="fas fa-calendar-week section-icon" style="color:#ff8c61;"></i>
+                            <div>
+                                <div class="section-title">4-WEEK SPRINT CYCLE</div>
+                                <div class="section-sub">Explosion → Amplification → Crucible → Rebirth</div>
+                            </div>
+                        </div>
+                        <div class="section-chevron"><i class="fas fa-chevron-down"></i></div>
+                    </div>
+                    <div class="section-body">
+                        <div class="sprint-row" id="sprintContainer"><!-- Injected by JS --></div>
+                    </div>
+                </div>
+
+                <!-- 5. PILLARS SECTION -->
+                <div class="section" id="section-pillars" data-section="pillars">
+                    <div class="section-header">
+                        <div class="section-header-left">
+                            <i class="fas fa-columns section-icon" style="color:#ffd700;"></i>
+                            <div>
+                                <div class="section-title">THE 7 PILLARS</div>
+                                <div class="section-sub">Purpose · Spiritual · Mind · Health · Material · English · Cash</div>
+                            </div>
+                        </div>
+                        <div class="section-chevron"><i class="fas fa-chevron-down"></i></div>
+                    </div>
+                    <div class="section-body">
+                        <div class="pillar-row" id="pillarContainer"><!-- Injected by JS --></div>
+                    </div>
+                </div>
+
+            </div>
+            <!-- end flow -->
+        </div>
+        <!-- end dashboard -->
+    </div>
+    <!-- end stage -->
+
+    <script>
+        // --- FIREBASE CONFIG ---
+        const firebaseConfig = {
+            databaseURL: "https://english-meetings-f08e4-default-rtdb.firebaseio.com/"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const dbRef = db.ref('transcendence_dashboard');
+
+        const PILLAR_COLORS = ['#ffd700', '#ffffff', '#9d4edd', '#4ade80', '#ff5722', '#00d4ff', '#e0e0e0'];
+
+        // --- DEFAULT DATA (Seeds the DB if empty) ---
+        const DEFAULT_DATA = {
+            northStar: "Build independent, transcendent ecosystems that transform Jobs, Spirits, & Realities—equipping families with maturity, love, and financial wealth.",
+
+            checklist: [
+                { text: "1. PURPOSE: Took 1 ACTION toward workshops/platform?", done: false },
+                { text: "2. SPIRITUAL: Connected with God in total honesty for 1 hour?", done: false },
+                { text: "3. MIND: Pushed past discomfort & generated 1 idea?", done: false },
+                { text: "4. HEALTH: Moved body & ate 100% organic today?", done: false },
+                { text: "5. MATERIAL: Researched 1 car/house/asset step?", done: false },
+                { text: "6. ENGLISH: Practiced American accent for 15 mins?", done: false },
+                { text: "7. CASH: Outlined 1 stream of Billionaire Framework?", done: false }
+            ],
+
+            kanban: {
+                backlog: "- Create platform for cells\n- Find counselor for trauma\n- Define Asset sequence (Cash)\n- Lawyer for Material protection",
+                doing: "- Workshop pilot (Week 1)\n- Daily 1hr Prayer\n- Practice CD Charlie's Accent",
+                done: "- Wrote Life Purpose Manifesto\n- Joined the Gym\n- Bought Organic Meal Plan\n- Researched Tesla models"
+            },
+
+            sprints: [
+                { week: "WEEK 1 · EXPLOSION", theme: "💥 Maximum Volume", focus: "Test 3 wild actions: 1) Workshop pilot 2) Impossible convo 3) Asset map." },
+                { week: "WEEK 2 · AMPLIFICATION", theme: "🔥 Pick the Winner", focus: "Double down on Week 1's winner. Add daily English accent drills." },
+                { week: "WEEK 3 · CRUCIBLE", theme: "⛰️ Push & Recover", focus: "Increase standards by 20%. Gym +5kg. Prayer +15min. Cold showers." },
+                { week: "WEEK 4 · FUNERAL & REBIRTH", theme: "⚰️ Ruthless Edit", focus: "KILL 1 weak habit. ADD 1 new tool. Plan the next 4-week cycle." }
+            ],
+
+            pillars: [
+                {
+                    name: "👨‍👩‍👧‍👦 LIFE PURPOSE",
+                    metric: "1 workshop designed",
+                    content:
+"VISION\n" +
+"• Get them to better equip their families with maturity and love\n" +
+"• Make people satisfied with their jobs by giving their best\n" +
+"• Make people work with what they're good at and excited for — and get wealthy\n" +
+"• Entrepreneurship spirit for transforming everything around them, for transcendence\n" +
+"• An independent ecosystem they develop and transform each other\n" +
+"• Transform the Economy of Jobs — they create their own professions to serve & lift others up — cells as a product\n" +
+"• Learn how to create realities and transform positively whatever they want and need to\n\n" +
+"ACTIONS\n" +
+"1. Workshops to get them to develop each other by teaching, as an initial step\n" +
+"2. Create the platform for cells creation"
+                },
+                {
+                    name: "🕊️ SPIRITUAL LIFE",
+                    metric: "60min prayer/reflection",
+                    content:
+"VISION\n" +
+"• Connected to God at all times — doing everything He wants me to\n" +
+"• Living in total honesty and sincerity to enter the tabernacle\n" +
+"• Creating realities by His word\n\n" +
+"ACTIONS\n" +
+"1. Separate a larger time to focus on prayer, reflection, and learning\n" +
+"2. Time to help and connect with others, and seize the time"
+                },
+                {
+                    name: "🧠 MIND & INFLUENCE",
+                    metric: "1 impossible idea",
+                    content:
+"ATTITUDES\n" +
+"• Maturity developed\n" +
+"• I wanna make decisions\n" +
+"• Trauma free\n" +
+"• Exceptional emotional management\n" +
+"• Organized and decided\n" +
+"• Engage others to give their best and create the new and high level\n" +
+"• Create what doesn't exist and is impossible\n" +
+"• Totally balanced and at peace at all times\n" +
+"• Totally influences everyone with the power of words to create new realities\n" +
+"• Inspires others to make the change — get them out of the dust, give them the blow of life\n" +
+"• Creates the best and the biggest, always\n" +
+"• Unshakable emotionally — thinks well to make the most of it all, ideate with others, negotiate to a better/higher idea\n" +
+"• Totally transparent and honest to create faster and more clearly\n" +
+"• People connector with pleasure — engager and team creator with others for positive ideas\n\n" +
+"ACTIONS\n" +
+"1. Develop actionable steps\n" +
+"2. Search for a counselor if/when needed\n" +
+"3. Practice what's needed to take action — how to deal with chaos, organize my mind\n" +
+"4. Create what doesn't exist and is impossible — live by it, rest my mind\n" +
+"5. Talk to people — influence with the power of words to create new realities\n" +
+"6. Think well to take the most of it all — ideate and negotiate to better/higher ideas\n" +
+"7. Create faster and more clearly\n" +
+"8. People connector, with no time restraint"
+                },
+                {
+                    name: "💪 HEALTH",
+                    metric: "Gym + organic meal",
+                    content:
+"VISION\n" +
+"• Muscles with no belly\n" +
+"• Laser on body hair\n" +
+"• Fit\n" +
+"• No disease\n" +
+"• High degree of health at all levels\n" +
+"• Playing the sports and hobby events I enjoy\n" +
+"• Access to the best health insurance programs\n\n" +
+"ACTIONS (with my partner)\n" +
+"1. Go to the doctor\n" +
+"2. Go to the gym\n" +
+"3. List and eat organic, healthy diet\n" +
+"4. Sports and outdoor activities\n" +
+"5. Access to the best health insurance programs\n" +
+"6. Access to mind doctors whenever needed"
+                },
+                {
+                    name: "🏠 MATERIAL",
+                    metric: "1 asset-research task",
+                    content:
+"VISION\n" +
+"• A brand new Corolla and Civic and Tesla — hybrid or electric\n" +
+"• A big house or apartment with a big pool and BBQ area\n\n" +
+"ACTIONS\n" +
+"1. Organize financial life and develop assets\n" +
+"2. Define material things to get, and how, when, and where — live like the rich\n" +
+"3. What assets to create to get $ for that, and how much is needed to get them all\n" +
+"4. How to protect them — lawyers, insurance, holdings, etc."
+                },
+                {
+                    name: "🗣️ ENGLISH",
+                    metric: "15min accent drill",
+                    content:
+"VISION\n" +
+"• Perfect American accent with natural fluency and rapid speech\n\n" +
+"ACTIONS\n" +
+"1. Practice the sounds with Charlie's CD + American accent apps + GPT\n" +
+"2. Learn vocab from different areas\n" +
+"3. Practice fast thinking speech\n" +
+"4. Practice/develop speech for public speaking, training, team comms, influencing, creating realities\n" +
+"5. Learn idioms and other ways of creating sentences\n" +
+"6. Develop a particular accent from a US region"
+                },
+                {
+                    name: "💰 CASH",
+                    metric: "1 billionaire step",
+                    content:
+"VISION\n" +
+"• $100k monthly wage from business + more from investment asset dividends\n" +
+"• Live from investment dividends\n" +
+"• Several investment assets\n" +
+"• Travel by miles for free\n" +
+"• Teach my kids and stakeholders to multiply via assets too\n\n" +
+"ACTIONS\n" +
+"1. Organize my billionaire steps framework — how to construct it, how money is generated and distributed, and where\n" +
+"2. Define the sequence of where money will go, then benefit from free stuff such as miles/trips\n" +
+"3. What and how to teach others to do the same — when, where to start from, and who"
+                }
+            ],
+
+            ui: { kanbanOpen: true, sprintsOpen: false, pillarsOpen: false }
+        };
+
+        // --- BUILD DOM (static containers) ---
+        const checklistContainer = document.getElementById('checklistContainer');
+        const kanbanRow = document.querySelector('.kanban-row');
+        const sprintContainer = document.getElementById('sprintContainer');
+        const pillarContainer = document.getElementById('pillarContainer');
+
+        let currentData = null;
+
+        function buildChecklist(items) {
+            checklistContainer.innerHTML = '';
+            items.forEach((item, idx) => {
+                const row = document.createElement('div');
+                row.className = 'checklist-row' + (item.done ? ' done' : '');
+                row.style.setProperty('--pcolor', PILLAR_COLORS[idx % PILLAR_COLORS.length]);
+                row.dataset.idx = idx;
+
+                const box = document.createElement('div');
+                box.className = 'chk-box' + (item.done ? ' checked' : '');
+                box.innerHTML = '<i class="fas fa-check"></i>';
+                box.addEventListener('click', () => toggleChecklistItem(idx));
+
+                const text = document.createElement('div');
+                text.className = 'chk-text';
+                text.contentEditable = 'true';
+                text.innerText = item.text;
+                text.addEventListener('blur', () => {
+                    currentData.checklist[idx].text = text.innerText;
+                    saveToFirebase('checklist.' + idx + '.text', text.innerText);
+                });
+
+                row.appendChild(box);
+                row.appendChild(text);
+                checklistContainer.appendChild(row);
+            });
+            updateProgress(items);
+        }
+
+        function updateProgress(items) {
+            const done = items.filter(i => i.done).length;
+            const total = items.length;
+            const pct = total ? Math.round((done / total) * 100) : 0;
+            document.getElementById('progressFill').style.width = pct + '%';
+            document.getElementById('progressNum').innerText = done + '/' + total;
+        }
+
+        function toggleChecklistItem(idx) {
+            const item = currentData.checklist[idx];
+            item.done = !item.done;
+            saveToFirebase('checklist.' + idx + '.done', item.done);
+            buildChecklist(currentData.checklist);
+        }
+
+        function buildKanban(kanban) {
+            const map = { backlog: '[data-path="kanban.backlog"] .card-content', doing: '[data-path="kanban.doing"] .card-content', done: '[data-path="kanban.done"] .card-content' };
+            Object.keys(map).forEach(key => {
+                const el = document.querySelector(map[key]);
+                if (el) el.innerText = kanban[key] || '';
+            });
+        }
+
+        function buildSprints(sprints) {
+            sprintContainer.innerHTML = '';
+            sprints.forEach((s, idx) => {
+                const div = document.createElement('div');
+                div.className = 'sprint-item';
+                div.dataset.path = 'sprints.' + idx;
+                div.innerHTML = `
+                    <div class="sprint-week">${s.week}</div>
+                    <div class="sprint-theme" contenteditable="true" data-field="theme">${s.theme}</div>
+                    <div class="sprint-focus" contenteditable="true" data-field="focus">${s.focus}</div>
+                `;
+                sprintContainer.appendChild(div);
+            });
+        }
+
+        function buildPillars(pillars) {
+            pillarContainer.innerHTML = '';
+            pillars.forEach((p, idx) => {
+                const div = document.createElement('div');
+                div.className = `card pillar pillar-${idx + 1}`;
+                div.dataset.path = 'pillars.' + idx;
+                const color = PILLAR_COLORS[idx];
+                div.style.borderColor = color;
+                div.innerHTML = `
+                    <div class="card-label"><i class="fas fa-circle" style="font-size:0.6rem; color:${color};"></i> ${p.name}</div>
+                    <span class="pillar-metric"><i class="fas fa-arrow-right"></i> ${p.metric}</span>
+                    <div class="card-content" contenteditable="true" data-field="content">${p.content}</div>
+                `;
+                pillarContainer.appendChild(div);
+            });
+        }
+
+        // --- FIREBASE: SAVE ---
+        function saveToFirebase(path, value) {
+            dbRef.child(path).set(value).then(() => {
+                document.getElementById('syncStatus').innerText = 'Saved ✅';
+                setTimeout(() => { document.getElementById('syncStatus').innerText = 'Live Sync'; }, 1500);
+            }).catch(err => {
+                console.error(err);
+                document.getElementById('syncStatus').innerText = 'Error!';
+            });
+        }
+
+        // --- ATTACH EDIT LISTENERS (delegated after dynamic build) ---
+        function attachListeners() {
+            // North Star
+            document.querySelector('.north-star .card-content').addEventListener('blur', function () {
+                currentData.northStar = this.innerText;
+                saveToFirebase('northStar', this.innerText);
+            });
+
+            // Kanban
+            document.querySelectorAll('.kanban-row [data-path]').forEach(col => {
+                const key = col.dataset.path.split('.')[1];
+                col.querySelector('.card-content').addEventListener('blur', function () {
+                    currentData.kanban[key] = this.innerText;
+                    saveToFirebase('kanban.' + key, this.innerText);
+                });
+            });
+
+            // Sprints
+            document.querySelectorAll('.sprint-item').forEach(item => {
+                const idx = item.dataset.path.split('.')[1];
+                item.querySelectorAll('[contenteditable="true"]').forEach(el => {
+                    el.addEventListener('blur', function () {
+                        const field = this.dataset.field;
+                        currentData.sprints[idx][field] = this.innerText;
+                        saveToFirebase('sprints.' + idx + '.' + field, this.innerText);
+                    });
+                });
+            });
+
+            // Pillars
+            document.querySelectorAll('.pillar').forEach(p => {
+                const idx = p.dataset.path.split('.')[1];
+                const contentEl = p.querySelector('[data-field="content"]');
+                contentEl.addEventListener('blur', function () {
+                    currentData.pillars[idx].content = this.innerText;
+                    saveToFirebase('pillars.' + idx + '.content', this.innerText);
+                });
+            });
+        }
+
+        // --- COLLAPSIBLE SECTIONS ---
+        function setupSections(ui) {
+            const sections = {
+                kanban: document.getElementById('section-kanban'),
+                sprints: document.getElementById('section-sprints'),
+                pillars: document.getElementById('section-pillars')
+            };
+            Object.keys(sections).forEach(key => {
+                const section = sections[key];
+                const isOpen = ui && ui[key + 'Open'];
+                section.classList.toggle('open', !!isOpen);
+                const header = section.querySelector('.section-header');
+                header.addEventListener('click', () => {
+                    const nowOpen = !section.classList.contains('open');
+                    section.classList.toggle('open', nowOpen);
+                    currentData.ui[key + 'Open'] = nowOpen;
+                    saveToFirebase('ui.' + key + 'Open', nowOpen);
+                });
+            });
+        }
+
+        // --- LOAD ---
+        function loadData() {
+            dbRef.once('value', (snapshot) => {
+                const data = snapshot.val();
+                if (!data) {
+                    dbRef.set(DEFAULT_DATA).then(() => {
+                        console.log('Seeded database with defaults.');
+                        populateUI(DEFAULT_DATA);
+                    });
+                    return;
+                }
+                // Normalize checklist (support legacy string-only format)
+                if (Array.isArray(data.checklist) && typeof data.checklist[0] === 'string') {
+                    data.checklist = data.checklist.map(t => ({ text: t, done: false }));
+                }
+                if (!data.ui) data.ui = DEFAULT_DATA.ui;
+                populateUI(data);
+            }).catch(err => {
+                console.error('Firebase load error:', err);
+                populateUI(DEFAULT_DATA);
+            });
+        }
+
+        function populateUI(data) {
+            currentData = JSON.parse(JSON.stringify(data));
+
+            const ns = document.querySelector('.north-star .card-content');
+            if (data.northStar) ns.innerText = data.northStar;
+
+            buildChecklist(data.checklist || DEFAULT_DATA.checklist);
+            buildKanban(data.kanban || DEFAULT_DATA.kanban);
+            buildSprints(data.sprints || DEFAULT_DATA.sprints);
+            buildPillars(data.pillars || DEFAULT_DATA.pillars);
+            setupSections(data.ui || DEFAULT_DATA.ui);
+
+            attachListeners();
+        }
+
+        // --- 3D MOUSE PARALLAX ---
+        const dashboard = document.getElementById('dashboard');
+        const stage = document.getElementById('stage');
+
+        document.addEventListener('mousemove', (e) => {
+            const rect = stage.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / rect.width - 0.5;
+            const y = (e.clientY - rect.top) / rect.height - 0.5;
+            const rotY = x * 2;
+            const rotX = -y * 1.5;
+            dashboard.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg)`;
+        });
+
+        document.addEventListener('mouseleave', () => {
+            dashboard.style.transform = 'rotateX(0deg) rotateY(0deg)';
+        });
+
+        // --- INIT ---
+        loadData();
+    </script>
+</body>
+</html>
