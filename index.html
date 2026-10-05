@@ -11,28 +11,12 @@
   
   <style>
     /* Custom Scrollbar */
-    ::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
-    }
-    ::-webkit-scrollbar-track {
-      background: #0f172a;
-    }
-    ::-webkit-scrollbar-thumb {
-      background: #334155;
-      border-radius: 4px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-      background: #475569;
-    }
-    .dragging {
-      opacity: 0.4;
-      transform: scale(0.98);
-    }
-    .drag-over {
-      border-color: #6366f1 !important;
-      background-color: rgba(99, 102, 241, 0.05) !important;
-    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    .dragging { opacity: 0.4; transform: scale(0.98); }
+    .drag-over { border-color: #6366f1 !important; background-color: rgba(99, 102, 241, 0.05) !important; }
   </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans antialiased selection:bg-indigo-500 selection:text-white">
@@ -61,12 +45,12 @@
       </button>
     </nav>
 
-    <!-- CONFIG / STATUS BUTTON -->
+    <!-- STATUS INDICATOR (somente leitura) -->
     <div class="flex items-center gap-2">
-      <button onclick="openFirebaseModal()" title="Configurar Firebase" class="px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/80 text-xs font-medium text-slate-300 transition-colors flex items-center gap-2">
+      <div class="px-3 py-2 rounded-xl bg-slate-800/80 border border-slate-700/80 text-xs font-medium text-slate-300 flex items-center gap-2">
         <i class="fa-solid fa-database text-amber-400" id="db-status-icon"></i>
-        <span id="db-status-text">Firebase Offline</span>
-      </button>
+        <span id="db-status-text">Conectando...</span>
+      </div>
     </div>
   </header>
 
@@ -217,58 +201,25 @@
     </div>
   </div>
 
-  <!-- Modal: Configuração do Firebase -->
-  <div id="modal-firebase" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-lg w-full shadow-2xl space-y-5">
-      <div class="flex justify-between items-center">
-        <h3 class="text-lg font-bold text-slate-100 flex items-center gap-2">
-          <i class="fa-solid fa-fire text-amber-500"></i> Configuração do Firebase
-        </h3>
-        <button onclick="closeModal('modal-firebase')" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark"></i></button>
-      </div>
-      <p class="text-xs text-slate-400 leading-relaxed">
-        Insira abaixo as credenciais do seu projeto Firebase (Firestore). Elas serão gravadas com segurança no <code>localStorage</code> do seu navegador.
-      </p>
-      <div class="space-y-3 text-xs">
-        <div>
-          <label class="block font-semibold uppercase text-slate-400 mb-1">API Key</label>
-          <input type="text" id="fb-apiKey" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 font-mono text-xs focus:outline-none focus:border-indigo-500">
-        </div>
-        <div>
-          <label class="block font-semibold uppercase text-slate-400 mb-1">Auth Domain</label>
-          <input type="text" id="fb-authDomain" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 font-mono text-xs focus:outline-none focus:border-indigo-500">
-        </div>
-        <div>
-          <label class="block font-semibold uppercase text-slate-400 mb-1">Project ID</label>
-          <input type="text" id="fb-projectId" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 font-mono text-xs focus:outline-none focus:border-indigo-500">
-        </div>
-      </div>
-      <div class="flex justify-between items-center pt-2">
-        <button onclick="clearFirebaseConfig()" class="text-rose-400 hover:text-rose-300 text-xs font-semibold">Limpar Configurações</button>
-        <div class="flex gap-2">
-          <button onclick="closeModal('modal-firebase')" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-200">Cancelar</button>
-          <button onclick="saveFirebaseConfig()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-xl text-xs font-semibold shadow-md shadow-indigo-600/20">Conectar Firebase</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Firebase Modular SDK Import -->
+  <!-- Firebase Realtime Database Modular SDK -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { 
-      getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp 
-    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+      getDatabase, ref, onValue, set, push, update, remove
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-    // Application Local & Firebase State
+    // ============================================================
+    // CONFIGURAÇÃO FIXA DO FIREBASE (hardcoded)
+    // Troque a URL abaixo se usar outro projeto.
+    // ============================================================
+    const FIREBASE_CONFIG = {
+      databaseURL: "https://english-meetings-f08e4-default-rtdb.firebaseio.com/"
+    };
+    // ============================================================
+
     let db = null;
-    let localCategories = [
-      { id: 'cat-1', name: 'Classes', ideas: [{ id: 'i-1', text: 'Criar plano de aula interativo' }] },
-      { id: 'cat-2', name: 'Business', ideas: [{ id: 'i-2', text: 'Automação de agendamentos' }] }
-    ];
-    let localTasks = [
-      { id: 't-1', title: 'Aprender Firestore com Tailwind', status: 'todo' }
-    ];
+    let localCategories = [];
+    let localTasks = [];
 
     // UI Tab Switcher
     window.switchTab = function(tabName) {
@@ -294,6 +245,16 @@
     function renderCategories() {
       const grid = document.getElementById('categories-grid');
       grid.innerHTML = '';
+
+      if (localCategories.length === 0) {
+        grid.innerHTML = `
+          <div class="col-span-full text-center py-12 border border-dashed border-slate-800 rounded-2xl">
+            <i class="fa-regular fa-lightbulb text-4xl text-slate-700 mb-3"></i>
+            <p class="text-slate-500 text-sm">Nenhuma categoria criada ainda.</p>
+            <p class="text-slate-600 text-xs mt-1">Clique em "Nova Categoria" para começar.</p>
+          </div>`;
+        return;
+      }
 
       localCategories.forEach(cat => {
         const catCard = document.createElement('div');
@@ -394,13 +355,11 @@
     // Drag and Drop Logic
     window.handleDragOver = function(e) {
       e.preventDefault();
-      const col = e.currentTarget;
-      col.classList.add('drag-over');
+      e.currentTarget.classList.add('drag-over');
     };
 
     window.handleDragLeave = function(e) {
-      const col = e.currentTarget;
-      col.classList.remove('drag-over');
+      e.currentTarget.classList.remove('drag-over');
     };
 
     window.handleDrop = async function(e) {
@@ -420,7 +379,7 @@
 
         if (db) {
           try {
-            await updateDoc(doc(db, "kanban_tasks", taskId), { status: newStatus });
+            await update(ref(db, `kanban_tasks/${taskId}`), { status: newStatus });
           } catch (err) {
             console.error("Erro ao atualizar status:", err);
           }
@@ -432,6 +391,7 @@
     window.openCategoryModal = function() {
       document.getElementById('category-name-input').value = '';
       document.getElementById('modal-category').classList.remove('hidden');
+      setTimeout(() => document.getElementById('category-name-input').focus(), 50);
     };
 
     window.saveCategory = async function() {
@@ -439,7 +399,12 @@
       if (!name) return;
 
       if (db) {
-        await addDoc(collection(db, "categories"), { name: name, ideas: [], createdAt: serverTimestamp() });
+        try {
+          const newCatRef = push(ref(db, 'categories'));
+          await set(newCatRef, { name: name, ideas: [] });
+        } catch (err) {
+          console.error("Erro ao criar categoria:", err);
+        }
       } else {
         localCategories.push({ id: 'cat-' + Date.now(), name: name, ideas: [] });
         renderCategories();
@@ -450,7 +415,11 @@
     window.deleteCategory = async function(catId) {
       if (!confirm("Tem certeza que deseja excluir esta categoria?")) return;
       if (db) {
-        await deleteDoc(doc(db, "categories", catId));
+        try {
+          await remove(ref(db, `categories/${catId}`));
+        } catch (err) {
+          console.error("Erro ao deletar categoria:", err);
+        }
       } else {
         localCategories = localCategories.filter(c => c.id !== catId);
         renderCategories();
@@ -464,6 +433,7 @@
       document.getElementById('idea-text-input').value = text || '';
       document.getElementById('modal-idea-title').innerText = ideaId ? 'Editar Ideia' : 'Nova Ideia';
       document.getElementById('modal-idea').classList.remove('hidden');
+      setTimeout(() => document.getElementById('idea-text-input').focus(), 50);
     };
 
     window.saveIdea = async function() {
@@ -486,7 +456,11 @@
       }
 
       if (db) {
-        await updateDoc(doc(db, "categories", catId), { ideas: category.ideas });
+        try {
+          await set(ref(db, `categories/${catId}/ideas`), category.ideas);
+        } catch (err) {
+          console.error("Erro ao salvar ideia:", err);
+        }
       } else {
         renderCategories();
       }
@@ -500,7 +474,11 @@
       category.ideas = category.ideas.filter(i => i.id !== ideaId);
 
       if (db) {
-        await updateDoc(doc(db, "categories", catId), { ideas: category.ideas });
+        try {
+          await set(ref(db, `categories/${catId}/ideas`), category.ideas);
+        } catch (err) {
+          console.error("Erro ao deletar ideia:", err);
+        }
       } else {
         renderCategories();
       }
@@ -509,11 +487,12 @@
     // Send Idea to Kanban "To Do"
     window.sendIdeaToKanban = async function(catId, ideaId, text) {
       if (db) {
-        await addDoc(collection(db, "kanban_tasks"), {
-          title: text,
-          status: "todo",
-          createdAt: serverTimestamp()
-        });
+        try {
+          const newTaskRef = push(ref(db, 'kanban_tasks'));
+          await set(newTaskRef, { title: text, status: "todo" });
+        } catch (err) {
+          console.error("Erro ao enviar para Kanban:", err);
+        }
       } else {
         localTasks.push({ id: 't-' + Date.now(), title: text, status: 'todo' });
         renderTasks();
@@ -528,6 +507,7 @@
       document.getElementById('task-status-select').value = status || 'todo';
       document.getElementById('modal-task-title').innerText = taskId ? 'Editar Tarefa' : 'Nova Tarefa';
       document.getElementById('modal-task').classList.remove('hidden');
+      setTimeout(() => document.getElementById('task-title-input').focus(), 50);
     };
 
     window.saveTask = async function() {
@@ -544,11 +524,20 @@
           task.status = status;
         }
         if (db) {
-          await updateDoc(doc(db, "kanban_tasks", taskId), { title, status });
+          try {
+            await update(ref(db, `kanban_tasks/${taskId}`), { title, status });
+          } catch (err) {
+            console.error("Erro ao atualizar tarefa:", err);
+          }
         }
       } else {
         if (db) {
-          await addDoc(collection(db, "kanban_tasks"), { title, status, createdAt: serverTimestamp() });
+          try {
+            const newTaskRef = push(ref(db, 'kanban_tasks'));
+            await set(newTaskRef, { title, status });
+          } catch (err) {
+            console.error("Erro ao criar tarefa:", err);
+          }
         } else {
           localTasks.push({ id: 't-' + Date.now(), title, status });
         }
@@ -560,7 +549,11 @@
 
     window.deleteTask = async function(taskId) {
       if (db) {
-        await deleteDoc(doc(db, "kanban_tasks", taskId));
+        try {
+          await remove(ref(db, `kanban_tasks/${taskId}`));
+        } catch (err) {
+          console.error("Erro ao deletar tarefa:", err);
+        }
       } else {
         localTasks = localTasks.filter(t => t.id !== taskId);
         renderTasks();
@@ -572,61 +565,45 @@
       document.getElementById(modalId).classList.add('hidden');
     };
 
-    // Firebase Initialization & Config
-    window.openFirebaseModal = function() {
-      const config = JSON.parse(localStorage.getItem('firebase_config') || '{}');
-      document.getElementById('fb-apiKey').value = config.apiKey || '';
-      document.getElementById('fb-authDomain').value = config.authDomain || '';
-      document.getElementById('fb-projectId').value = config.projectId || '';
-      document.getElementById('modal-firebase').classList.remove('hidden');
-    };
-
-    window.saveFirebaseConfig = function() {
-      const apiKey = document.getElementById('fb-apiKey').value.trim();
-      const authDomain = document.getElementById('fb-authDomain').value.trim();
-      const projectId = document.getElementById('fb-projectId').value.trim();
-
-      if (!apiKey || !projectId) {
-        alert("Preencha ao menos o API Key e o Project ID.");
-        return;
-      }
-
-      const config = { apiKey, authDomain, projectId };
-      localStorage.setItem('firebase_config', JSON.stringify(config));
-      location.reload();
-    };
-
-    window.clearFirebaseConfig = function() {
-      localStorage.removeItem('firebase_config');
-      location.reload();
-    };
-
+    // Inicialização automática do Firebase
     function initFirebase() {
-      const config = JSON.parse(localStorage.getItem('firebase_config') || 'null');
-      if (!config || !config.apiKey) {
-        updateDbStatus(false, "Firebase Offline (Modo Local)");
-        renderCategories();
-        renderTasks();
-        return;
-      }
-
       try {
-        const app = initializeApp(config);
-        db = getFirestore(app);
+        const app = initializeApp(FIREBASE_CONFIG);
+        db = getDatabase(app);
 
         // Sync Categories Realtime
-        onSnapshot(collection(db, "categories"), (snapshot) => {
-          localCategories = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        onValue(ref(db, 'categories'), (snapshot) => {
+          const data = snapshot.val();
+          if (data) {
+            localCategories = Object.entries(data).map(([id, cat]) => ({
+              id,
+              name: cat.name || '',
+              ideas: cat.ideas ? (Array.isArray(cat.ideas) ? cat.ideas : Object.values(cat.ideas)) : []
+            }));
+          } else {
+            localCategories = [];
+          }
           renderCategories();
+        }, (err) => {
+          console.error("Erro ao ler categorias:", err);
+          updateDbStatus(false, "Erro de permissão");
         });
 
         // Sync Tasks Realtime
-        onSnapshot(collection(db, "kanban_tasks"), (snapshot) => {
-          localTasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        onValue(ref(db, 'kanban_tasks'), (snapshot) => {
+          const data = snapshot.val();
+          if (data) {
+            localTasks = Object.entries(data).map(([id, task]) => ({ id, ...task }));
+          } else {
+            localTasks = [];
+          }
           renderTasks();
+        }, (err) => {
+          console.error("Erro ao ler tarefas:", err);
+          updateDbStatus(false, "Erro de permissão");
         });
 
-        updateDbStatus(true, "Firebase Conectado");
+        updateDbStatus(true, "Sincronizado");
       } catch (err) {
         console.error("Erro ao inicializar Firebase:", err);
         updateDbStatus(false, "Erro no Firebase");
@@ -642,12 +619,17 @@
       if (connected) {
         icon.className = "fa-solid fa-wifi text-emerald-400";
       } else {
-        icon.className = "fa-solid fa-database text-amber-400";
+        icon.className = "fa-solid fa-triangle-exclamation text-rose-400";
       }
     }
 
     function escapeHtml(str) {
-      return (str || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+      return String(str || '')
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
     }
 
     // Startup
