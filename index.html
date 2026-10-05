@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ideias & Kanban Task Manager</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  
+  <style>
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+    .dragging {
+      opacity: 0.4;
+      transform: scale(0.98);
+    }
+    .drag-over {
+      border-color: #6366f1 !important;
+      background-color: rgba(99, 102, 241, 0.05) !important;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans antialiased selection:bg-indigo-500 selection:text-white">
+
+  <!-- TOP HEADER -->
+  <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-40 px-4 sm:px-8 py-3.5 flex flex-col sm:flex-row justify-between items-center gap-4">
+    <div class="flex items-center gap-3">
+      <div class="p-2.5 bg-gradient-to-tr from-indigo-600 to-violet-500 rounded-xl shadow-lg shadow-indigo-500/20">
+        <i class="fa-solid fa-lightbulb text-white text-lg"></i>
+      </div>
+      <div>
+        <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+          Workspace <span class="text-xs px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">Pro</span>
+        </h1>
+        <p class="text-xs text-slate-400">Ideias & Checklist Kanban</p>
+      </div>
+    </div>
+
+    <!-- TABS NAVIGATION -->
+    <nav class="flex bg-slate-950 p-1.5 rounded-2xl border border-slate-800/80 shadow-inner">
+      <button id="tab-btn-ideas" onclick="switchTab('ideas')" class="flex items-center gap-2 px-5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 bg-indigo-600 text-white shadow-md shadow-indigo-600/30">
+        <i class="fa-regular fa-lightbulb"></i> Ideias
+      </button>
+      <button id="tab-btn-checklist" onclick="switchTab('checklist')" class="flex items-center gap-2 px-5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 text-slate-400 hover:text-slate-200">
+        <i class="fa-solid fa-list-check"></i> Checklist Kanban
+      </button>
+    </nav>
+
+    <!-- CONFIG / STATUS BUTTON -->
+    <div class="flex items-center gap-2">
+      <button onclick="openFirebaseModal()" title="Configurar Firebase" class="px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/80 text-xs font-medium text-slate-300 transition-colors flex items-center gap-2">
+        <i class="fa-solid fa-database text-amber-400" id="db-status-icon"></i>
+        <span id="db-status-text">Firebase Offline</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="flex-1 p-4 sm:p-8 max-w-7xl mx-auto w-full">
+
+    <!-- TAB 1: IDEAS -->
+    <section id="tab-ideas" class="space-y-6">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-800/80 pb-5">
+        <div>
+          <h2 class="text-xl sm:text-2xl font-bold text-slate-100 tracking-tight">Banco de Ideias</h2>
+          <p class="text-slate-400 text-xs sm:text-sm mt-0.5">Agrupe por categorias e envie direto para prioridade no Kanban com um clique.</p>
+        </div>
+        <button onclick="openCategoryModal()" class="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-xl font-medium text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-md shadow-indigo-600/20 active:scale-95">
+          <i class="fa-solid fa-plus"></i> Nova Categoria
+        </button>
+      </div>
+
+      <!-- Categories Container -->
+      <div id="categories-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Renderizado Dinamicamente -->
+      </div>
+    </section>
+
+    <!-- TAB 2: CHECKLIST KANBAN -->
+    <section id="tab-checklist" class="hidden space-y-6">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-800/80 pb-5">
+        <div>
+          <h2 class="text-xl sm:text-2xl font-bold text-slate-100 tracking-tight">Checklist & Kanban</h2>
+          <p class="text-slate-400 text-xs sm:text-sm mt-0.5">Arraste e solte os cartões entre as colunas para atualizar a prioridade.</p>
+        </div>
+        <button onclick="openTaskModal()" class="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-xl font-medium text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-md shadow-indigo-600/20 active:scale-95">
+          <i class="fa-solid fa-plus"></i> Nova Tarefa
+        </button>
+      </div>
+
+      <!-- Kanban Columns -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        <!-- Column: TO DO -->
+        <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 flex flex-col h-[calc(100vh-250px)] min-h-[450px]">
+          <div class="flex justify-between items-center mb-3 px-2">
+            <h3 class="font-bold text-xs tracking-wider uppercase text-amber-400 flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span> TO DO
+            </h3>
+            <span id="count-todo" class="text-xs bg-slate-800 text-slate-300 px-2.5 py-0.5 rounded-full font-bold">0</span>
+          </div>
+          <div id="col-todo" data-status="todo" class="kanban-col space-y-3 flex-1 overflow-y-auto p-2 bg-slate-950/40 rounded-xl border border-slate-800/40 transition-colors" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+            <!-- Tasks Here -->
+          </div>
+        </div>
+
+        <!-- Column: IN PROGRESS -->
+        <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 flex flex-col h-[calc(100vh-250px)] min-h-[450px]">
+          <div class="flex justify-between items-center mb-3 px-2">
+            <h3 class="font-bold text-xs tracking-wider uppercase text-blue-400 flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-blue-400 animate-pulse"></span> IN PROGRESS
+            </h3>
+            <span id="count-progress" class="text-xs bg-slate-800 text-slate-300 px-2.5 py-0.5 rounded-full font-bold">0</span>
+          </div>
+          <div id="col-progress" data-status="progress" class="kanban-col space-y-3 flex-1 overflow-y-auto p-2 bg-slate-950/40 rounded-xl border border-slate-800/40 transition-colors" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+            <!-- Tasks Here -->
+          </div>
+        </div>
+
+        <!-- Column: DONE -->
+        <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 flex flex-col h-[calc(100vh-250px)] min-h-[450px]">
+          <div class="flex justify-between items-center mb-3 px-2">
+            <h3 class="font-bold text-xs tracking-wider uppercase text-emerald-400 flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-emerald-400"></span> DONE
+            </h3>
+            <span id="count-done" class="text-xs bg-slate-800 text-slate-300 px-2.5 py-0.5 rounded-full font-bold">0</span>
+          </div>
+          <div id="col-done" data-status="done" class="kanban-col space-y-3 flex-1 overflow-y-auto p-2 bg-slate-950/40 rounded-xl border border-slate-800/40 transition-colors" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+            <!-- Tasks Here -->
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- MODALS -->
+
+  <!-- Modal: Nova Categoria -->
+  <div id="modal-category" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-5">
+      <div class="flex justify-between items-center">
+        <h3 class="text-lg font-bold text-slate-100">Nova Categoria</h3>
+        <button onclick="closeModal('modal-category')" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold uppercase text-slate-400 mb-2">Nome da Categoria</label>
+        <input type="text" id="category-name-input" placeholder="Ex: Business, Design, Aulas..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-slate-200 text-sm focus:outline-none focus:border-indigo-500 transition-colors">
+      </div>
+      <div class="flex justify-end gap-3 pt-2">
+        <button onclick="closeModal('modal-category')" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-200">Cancelar</button>
+        <button onclick="saveCategory()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-xl text-xs font-semibold shadow-md shadow-indigo-600/20">Criar Categoria</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Nova/Editar Ideia -->
+  <div id="modal-idea" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-5">
+      <div class="flex justify-between items-center">
+        <h3 id="modal-idea-title" class="text-lg font-bold text-slate-100">Nova Ideia</h3>
+        <button onclick="closeModal('modal-idea')" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <input type="hidden" id="idea-cat-id">
+      <input type="hidden" id="idea-edit-id">
+      <div>
+        <label class="block text-xs font-semibold uppercase text-slate-400 mb-2">Descrição da Ideia</label>
+        <textarea id="idea-text-input" rows="3" placeholder="Digite a ideia de forma simples e direta..." class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-200 text-sm focus:outline-none focus:border-indigo-500 transition-colors resize-none"></textarea>
+      </div>
+      <div class="flex justify-end gap-3 pt-2">
+        <button onclick="closeModal('modal-idea')" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-200">Cancelar</button>
+        <button onclick="saveIdea()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-xl text-xs font-semibold shadow-md shadow-indigo-600/20">Salvar Ideia</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Nova/Editar Tarefa Kanban -->
+  <div id="modal-task" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-5">
+      <div class="flex justify-between items-center">
+        <h3 id="modal-task-title" class="text-lg font-bold text-slate-100">Nova Tarefa</h3>
+        <button onclick="closeModal('modal-task')" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <input type="hidden" id="task-edit-id">
+      <div>
+        <label class="block text-xs font-semibold uppercase text-slate-400 mb-2">Título da Tarefa</label>
+        <input type="text" id="task-title-input" placeholder="O que precisa ser feito?" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-slate-200 text-sm focus:outline-none focus:border-indigo-500 transition-colors">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold uppercase text-slate-400 mb-2">Coluna Inicial</label>
+        <select id="task-status-select" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-slate-200 text-sm focus:outline-none focus:border-indigo-500 transition-colors">
+          <option value="todo">TO DO</option>
+          <option value="progress">IN PROGRESS</option>
+          <option value="done">DONE</option>
+        </select>
+      </div>
+      <div class="flex justify-end gap-3 pt-2">
+        <button onclick="closeModal('modal-task')" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-200">Cancelar</button>
+        <button onclick="saveTask()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-xl text-xs font-semibold shadow-md shadow-indigo-600/20">Salvar Tarefa</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Configuração do Firebase -->
+  <div id="modal-firebase" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-lg w-full shadow-2xl space-y-5">
+      <div class="flex justify-between items-center">
+        <h3 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+          <i class="fa-solid fa-fire text-amber-500"></i> Configuração do Firebase
+        </h3>
+        <button onclick="closeModal('modal-firebase')" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <p class="text-xs text-slate-400 leading-relaxed">
+        Insira abaixo as credenciais do seu projeto Firebase (Firestore). Elas serão gravadas com segurança no <code>localStorage</code> do seu navegador.
+      </p>
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block font-semibold uppercase text-slate-400 mb-1">API Key</label>
+          <input type="text" id="fb-apiKey" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 font-mono text-xs focus:outline-none focus:border-indigo-500">
+        </div>
+        <div>
+          <label class="block font-semibold uppercase text-slate-400 mb-1">Auth Domain</label>
+          <input type="text" id="fb-authDomain" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 font-mono text-xs focus:outline-none focus:border-indigo-500">
+        </div>
+        <div>
+          <label class="block font-semibold uppercase text-slate-400 mb-1">Project ID</label>
+          <input type="text" id="fb-projectId" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 font-mono text-xs focus:outline-none focus:border-indigo-500">
+        </div>
+      </div>
+      <div class="flex justify-between items-center pt-2">
+        <button onclick="clearFirebaseConfig()" class="text-rose-400 hover:text-rose-300 text-xs font-semibold">Limpar Configurações</button>
+        <div class="flex gap-2">
+          <button onclick="closeModal('modal-firebase')" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-200">Cancelar</button>
+          <button onclick="saveFirebaseConfig()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-xl text-xs font-semibold shadow-md shadow-indigo-600/20">Conectar Firebase</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase Modular SDK Import -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { 
+      getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp 
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    // Application Local & Firebase State
+    let db = null;
+    let localCategories = [
+      { id: 'cat-1', name: 'Classes', ideas: [{ id: 'i-1', text: 'Criar plano de aula interativo' }] },
+      { id: 'cat-2', name: 'Business', ideas: [{ id: 'i-2', text: 'Automação de agendamentos' }] }
+    ];
+    let localTasks = [
+      { id: 't-1', title: 'Aprender Firestore com Tailwind', status: 'todo' }
+    ];
+
+    // UI Tab Switcher
+    window.switchTab = function(tabName) {
+      const ideasTab = document.getElementById('tab-ideas');
+      const checklistTab = document.getElementById('tab-checklist');
+      const btnIdeas = document.getElementById('tab-btn-ideas');
+      const btnChecklist = document.getElementById('tab-btn-checklist');
+
+      if (tabName === 'ideas') {
+        ideasTab.classList.remove('hidden');
+        checklistTab.classList.add('hidden');
+        btnIdeas.className = "flex items-center gap-2 px-5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 bg-indigo-600 text-white shadow-md shadow-indigo-600/30";
+        btnChecklist.className = "flex items-center gap-2 px-5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 text-slate-400 hover:text-slate-200";
+      } else {
+        ideasTab.classList.add('hidden');
+        checklistTab.classList.remove('hidden');
+        btnChecklist.className = "flex items-center gap-2 px-5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 bg-indigo-600 text-white shadow-md shadow-indigo-600/30";
+        btnIdeas.className = "flex items-center gap-2 px-5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 text-slate-400 hover:text-slate-200";
+      }
+    };
+
+    // Render Helpers
+    function renderCategories() {
+      const grid = document.getElementById('categories-grid');
+      grid.innerHTML = '';
+
+      localCategories.forEach(cat => {
+        const catCard = document.createElement('div');
+        catCard.className = "bg-slate-900 border border-slate-800/80 rounded-2xl p-5 shadow-xl flex flex-col justify-between hover:border-slate-700/80 transition-all";
+
+        const ideasHtml = (cat.ideas || []).map(idea => `
+          <div class="p-3 bg-slate-950/70 border border-slate-800/60 rounded-xl flex justify-between items-center group hover:border-slate-700 transition-colors">
+            <span class="text-xs sm:text-sm font-medium text-slate-200 pr-2">${escapeHtml(idea.text)}</span>
+            <div class="flex items-center gap-1 opacity-90 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+              <button onclick="sendIdeaToKanban('${cat.id}', '${idea.id}', '${escapeHtml(idea.text)}')" title="Enviar para Checklist (To Do)" class="p-1.5 hover:bg-indigo-600/20 text-slate-400 hover:text-indigo-400 rounded-lg transition-colors">
+                <i class="fa-solid fa-plus-circle text-sm"></i>
+              </button>
+              <button onclick="openIdeaModal('${cat.id}', '${idea.id}', '${escapeHtml(idea.text)}')" title="Editar" class="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-slate-200 rounded-lg transition-colors">
+                <i class="fa-solid fa-pen text-xs"></i>
+              </button>
+              <button onclick="deleteIdea('${cat.id}', '${idea.id}')" title="Excluir" class="p-1.5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 rounded-lg transition-colors">
+                <i class="fa-solid fa-trash text-xs"></i>
+              </button>
+            </div>
+          </div>
+        `).join('');
+
+        catCard.innerHTML = `
+          <div>
+            <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-800/80">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-indigo-500"></span>
+                <h3 class="font-bold text-sm sm:text-base text-slate-100 tracking-wide">${escapeHtml(cat.name)}</h3>
+              </div>
+              <button onclick="deleteCategory('${cat.id}')" title="Excluir Categoria" class="text-slate-500 hover:text-rose-400 text-xs transition-colors p-1">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </div>
+            <div class="space-y-2.5 mb-4">
+              ${ideasHtml.length > 0 ? ideasHtml : '<p class="text-xs text-slate-500 italic py-2">Nenhuma ideia adicionada ainda.</p>'}
+            </div>
+          </div>
+          <button onclick="openIdeaModal('${cat.id}')" class="w-full py-2.5 border border-dashed border-slate-800 hover:border-indigo-500/50 hover:bg-indigo-500/5 rounded-xl text-slate-400 hover:text-indigo-400 text-xs font-semibold transition-all flex items-center justify-center gap-2">
+            <i class="fa-solid fa-plus text-[10px]"></i> Adicionar Ideia
+          </button>
+        `;
+        grid.appendChild(catCard);
+      });
+    }
+
+    function renderTasks() {
+      const colTodo = document.getElementById('col-todo');
+      const colProgress = document.getElementById('col-progress');
+      const colDone = document.getElementById('col-done');
+
+      colTodo.innerHTML = '';
+      colProgress.innerHTML = '';
+      colDone.innerHTML = '';
+
+      let countTodo = 0, countProgress = 0, countDone = 0;
+
+      localTasks.forEach(task => {
+        const card = document.createElement('div');
+        card.id = `task-${task.id}`;
+        card.draggable = true;
+        card.className = "bg-slate-900 border border-slate-800 p-3.5 rounded-xl cursor-grab active:cursor-grabbing shadow-sm hover:border-slate-700 transition-all flex justify-between items-start group";
+        
+        card.ondragstart = (e) => {
+          e.dataTransfer.setData("text/plain", task.id);
+          card.classList.add("dragging");
+        };
+        card.ondragend = () => card.classList.remove("dragging");
+
+        card.innerHTML = `
+          <p class="text-xs sm:text-sm font-medium text-slate-200 leading-snug">${escapeHtml(task.title)}</p>
+          <div class="flex items-center gap-1 opacity-90 sm:opacity-0 group-hover:opacity-100 transition-opacity ml-2">
+            <button onclick="openTaskModal('${task.id}', '${escapeHtml(task.title)}', '${task.status}')" class="p-1 text-slate-400 hover:text-slate-200 rounded">
+              <i class="fa-solid fa-pen text-[11px]"></i>
+            </button>
+            <button onclick="deleteTask('${task.id}')" class="p-1 text-slate-400 hover:text-rose-400 rounded">
+              <i class="fa-solid fa-trash text-[11px]"></i>
+            </button>
+          </div>
+        `;
+
+        if (task.status === 'todo') {
+          colTodo.appendChild(card);
+          countTodo++;
+        } else if (task.status === 'progress') {
+          colProgress.appendChild(card);
+          countProgress++;
+        } else if (task.status === 'done') {
+          colDone.appendChild(card);
+          countDone++;
+        }
+      });
+
+      document.getElementById('count-todo').innerText = countTodo;
+      document.getElementById('count-progress').innerText = countProgress;
+      document.getElementById('count-done').innerText = countDone;
+    }
+
+    // Drag and Drop Logic
+    window.handleDragOver = function(e) {
+      e.preventDefault();
+      const col = e.currentTarget;
+      col.classList.add('drag-over');
+    };
+
+    window.handleDragLeave = function(e) {
+      const col = e.currentTarget;
+      col.classList.remove('drag-over');
+    };
+
+    window.handleDrop = async function(e) {
+      e.preventDefault();
+      const col = e.currentTarget;
+      col.classList.remove('drag-over');
+
+      const taskId = e.dataTransfer.getData("text/plain");
+      const newStatus = col.getAttribute("data-status");
+
+      if (!taskId || !newStatus) return;
+
+      const task = localTasks.find(t => t.id === taskId);
+      if (task) {
+        task.status = newStatus;
+        renderTasks();
+
+        if (db) {
+          try {
+            await updateDoc(doc(db, "kanban_tasks", taskId), { status: newStatus });
+          } catch (err) {
+            console.error("Erro ao atualizar status:", err);
+          }
+        }
+      }
+    };
+
+    // Category CRUD
+    window.openCategoryModal = function() {
+      document.getElementById('category-name-input').value = '';
+      document.getElementById('modal-category').classList.remove('hidden');
+    };
+
+    window.saveCategory = async function() {
+      const name = document.getElementById('category-name-input').value.trim();
+      if (!name) return;
+
+      if (db) {
+        await addDoc(collection(db, "categories"), { name: name, ideas: [], createdAt: serverTimestamp() });
+      } else {
+        localCategories.push({ id: 'cat-' + Date.now(), name: name, ideas: [] });
+        renderCategories();
+      }
+      closeModal('modal-category');
+    };
+
+    window.deleteCategory = async function(catId) {
+      if (!confirm("Tem certeza que deseja excluir esta categoria?")) return;
+      if (db) {
+        await deleteDoc(doc(db, "categories", catId));
+      } else {
+        localCategories = localCategories.filter(c => c.id !== catId);
+        renderCategories();
+      }
+    };
+
+    // Idea CRUD
+    window.openIdeaModal = function(catId, ideaId = null, text = '') {
+      document.getElementById('idea-cat-id').value = catId;
+      document.getElementById('idea-edit-id').value = ideaId || '';
+      document.getElementById('idea-text-input').value = text || '';
+      document.getElementById('modal-idea-title').innerText = ideaId ? 'Editar Ideia' : 'Nova Ideia';
+      document.getElementById('modal-idea').classList.remove('hidden');
+    };
+
+    window.saveIdea = async function() {
+      const catId = document.getElementById('idea-cat-id').value;
+      const ideaId = document.getElementById('idea-edit-id').value;
+      const text = document.getElementById('idea-text-input').value.trim();
+
+      if (!text || !catId) return;
+
+      const category = localCategories.find(c => c.id === catId);
+      if (!category) return;
+
+      if (!category.ideas) category.ideas = [];
+
+      if (ideaId) {
+        const idea = category.ideas.find(i => i.id === ideaId);
+        if (idea) idea.text = text;
+      } else {
+        category.ideas.push({ id: 'i-' + Date.now(), text: text });
+      }
+
+      if (db) {
+        await updateDoc(doc(db, "categories", catId), { ideas: category.ideas });
+      } else {
+        renderCategories();
+      }
+      closeModal('modal-idea');
+    };
+
+    window.deleteIdea = async function(catId, ideaId) {
+      const category = localCategories.find(c => c.id === catId);
+      if (!category) return;
+
+      category.ideas = category.ideas.filter(i => i.id !== ideaId);
+
+      if (db) {
+        await updateDoc(doc(db, "categories", catId), { ideas: category.ideas });
+      } else {
+        renderCategories();
+      }
+    };
+
+    // Send Idea to Kanban "To Do"
+    window.sendIdeaToKanban = async function(catId, ideaId, text) {
+      if (db) {
+        await addDoc(collection(db, "kanban_tasks"), {
+          title: text,
+          status: "todo",
+          createdAt: serverTimestamp()
+        });
+      } else {
+        localTasks.push({ id: 't-' + Date.now(), title: text, status: 'todo' });
+        renderTasks();
+      }
+      switchTab('checklist');
+    };
+
+    // Task Kanban CRUD
+    window.openTaskModal = function(taskId = null, title = '', status = 'todo') {
+      document.getElementById('task-edit-id').value = taskId || '';
+      document.getElementById('task-title-input').value = title || '';
+      document.getElementById('task-status-select').value = status || 'todo';
+      document.getElementById('modal-task-title').innerText = taskId ? 'Editar Tarefa' : 'Nova Tarefa';
+      document.getElementById('modal-task').classList.remove('hidden');
+    };
+
+    window.saveTask = async function() {
+      const taskId = document.getElementById('task-edit-id').value;
+      const title = document.getElementById('task-title-input').value.trim();
+      const status = document.getElementById('task-status-select').value;
+
+      if (!title) return;
+
+      if (taskId) {
+        const task = localTasks.find(t => t.id === taskId);
+        if (task) {
+          task.title = title;
+          task.status = status;
+        }
+        if (db) {
+          await updateDoc(doc(db, "kanban_tasks", taskId), { title, status });
+        }
+      } else {
+        if (db) {
+          await addDoc(collection(db, "kanban_tasks"), { title, status, createdAt: serverTimestamp() });
+        } else {
+          localTasks.push({ id: 't-' + Date.now(), title, status });
+        }
+      }
+
+      if (!db) renderTasks();
+      closeModal('modal-task');
+    };
+
+    window.deleteTask = async function(taskId) {
+      if (db) {
+        await deleteDoc(doc(db, "kanban_tasks", taskId));
+      } else {
+        localTasks = localTasks.filter(t => t.id !== taskId);
+        renderTasks();
+      }
+    };
+
+    // Modal Helpers
+    window.closeModal = function(modalId) {
+      document.getElementById(modalId).classList.add('hidden');
+    };
+
+    // Firebase Initialization & Config
+    window.openFirebaseModal = function() {
+      const config = JSON.parse(localStorage.getItem('firebase_config') || '{}');
+      document.getElementById('fb-apiKey').value = config.apiKey || '';
+      document.getElementById('fb-authDomain').value = config.authDomain || '';
+      document.getElementById('fb-projectId').value = config.projectId || '';
+      document.getElementById('modal-firebase').classList.remove('hidden');
+    };
+
+    window.saveFirebaseConfig = function() {
+      const apiKey = document.getElementById('fb-apiKey').value.trim();
+      const authDomain = document.getElementById('fb-authDomain').value.trim();
+      const projectId = document.getElementById('fb-projectId').value.trim();
+
+      if (!apiKey || !projectId) {
+        alert("Preencha ao menos o API Key e o Project ID.");
+        return;
+      }
+
+      const config = { apiKey, authDomain, projectId };
+      localStorage.setItem('firebase_config', JSON.stringify(config));
+      location.reload();
+    };
+
+    window.clearFirebaseConfig = function() {
+      localStorage.removeItem('firebase_config');
+      location.reload();
+    };
+
+    function initFirebase() {
+      const config = JSON.parse(localStorage.getItem('firebase_config') || 'null');
+      if (!config || !config.apiKey) {
+        updateDbStatus(false, "Firebase Offline (Modo Local)");
+        renderCategories();
+        renderTasks();
+        return;
+      }
+
+      try {
+        const app = initializeApp(config);
+        db = getFirestore(app);
+
+        // Sync Categories Realtime
+        onSnapshot(collection(db, "categories"), (snapshot) => {
+          localCategories = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          renderCategories();
+        });
+
+        // Sync Tasks Realtime
+        onSnapshot(collection(db, "kanban_tasks"), (snapshot) => {
+          localTasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          renderTasks();
+        });
+
+        updateDbStatus(true, "Firebase Conectado");
+      } catch (err) {
+        console.error("Erro ao inicializar Firebase:", err);
+        updateDbStatus(false, "Erro no Firebase");
+        renderCategories();
+        renderTasks();
+      }
+    }
+
+    function updateDbStatus(connected, text) {
+      const icon = document.getElementById('db-status-icon');
+      const label = document.getElementById('db-status-text');
+      label.innerText = text;
+      if (connected) {
+        icon.className = "fa-solid fa-wifi text-emerald-400";
+      } else {
+        icon.className = "fa-solid fa-database text-amber-400";
+      }
+    }
+
+    function escapeHtml(str) {
+      return (str || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
+    // Startup
+    initFirebase();
+  </script>
+</body>
+</html>
